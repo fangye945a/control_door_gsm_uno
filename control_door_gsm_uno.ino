@@ -1,8 +1,6 @@
 #include "GSM_MQTT.h"
+#include <SoftwareSerial.h>
 
-#ifdef DE_BUG    //   在GSM_MQTT.h 中启用
-  #include <SoftwareSerial.h>
-#endif
 #define DEV_ID "z1868881605"                  //设备ID号
 String MQTT_HOST = "106.14.26.130";           //MQTT服务器IP
 String MQTT_PORT = "1995";                    //MQTT服务器端口号
@@ -16,7 +14,9 @@ const int locked = 6;     //继电器引脚定义D6
 const int gsm_reset = 2;  //GSM模块复位引脚定义D2
 char tmp[64]={0};         //消息缓存数组
 char csq[4]={0};          //信号强度
-extern unsigned long timer0_millis;
+
+GSM_MQTT MQTT(20);
+
 void GSM_MQTT::AutoConnect(void)                  //mqtt连接请求
 {
   memset( tmp,0,sizeof(tmp) );
@@ -52,8 +52,6 @@ void GSM_MQTT::OnMessage(char *Topic, int TopicLength, char *Message, int Messag
       publish(0, 1, 0, _generateMessageID(), "zx/door/firstword",tmp);    //推送上线消息
   }
 }
-
-GSM_MQTT MQTT(20);
 /*
    20 is the keepalive duration in seconds
 */

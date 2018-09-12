@@ -22,7 +22,7 @@ unsigned long previousMillis = 0;
 //char inputString[UART_BUFFER_LENGTH];         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
 void serialEvent();
-void signal_strength();
+void signal_strength(unsigned long waitms);
 
 GSM_MQTT::GSM_MQTT(unsigned long KeepAlive)
 {
@@ -85,12 +85,7 @@ void GSM_MQTT::_tcpInit(void)
         if (_sendAT("AT\r\n", 2000) == 1) //以前是5000
         {
            modemStatus = 1;
-           signal_strength(); //查询信号强度
-           if( csq[0] == 0x30 )
-           {
-              modemStatus = 0;
-              break;
-           }
+           
         }
         else
         {
@@ -114,6 +109,8 @@ void GSM_MQTT::_tcpInit(void)
       {
         if (sendATreply("AT+CREG?\r\n", "0,1", 2000) == 1)  //以前是5000
         {
+          signal_strength(3000); //查询信号强度 如果超时 则继续信号强度为0
+          
           _sendAT("AT+CIPMUX=0\r\n", 2000);
           _sendAT("AT+CIPMODE=1\r\n", 2000);
           if (sendATreply("AT+CGATT?\r\n", ": 1", 4000) != 1)
@@ -815,14 +812,16 @@ void serialEvent()
         MQTT.length = 0;
         MQTT.lengthLocal = 0;
         uint32_t multiplier=1;
-        delay(2);
+        if(Serial.available() < 5)
+          delay(2);
         char Cchar = inChar;
         while ( (NextLengthByte == true) && (MQTT.TCP_Flag == true))
         {
           if (Serial.available())
           {
             inChar = (char)Serial.read();
-            delay(10);                  //by fangye 20170831  取消串口调试信息
+            if(Serial.available() < 5)
+               delay(2);
 #ifdef DE_BUG     
             mySerial.println(inChar, DEC);
 #endif
@@ -998,34 +997,38 @@ void serialEvent()
   }
 }
 
-void signal_strength()    //查询信号强度
+void signal_strength(unsigned long waitms)    //查询信号强度
 {
    char p = 0;
    unsigned char i = 0;
-   delay(500);
-   while (Serial.available() > 0) //清除串口缓冲区待读取数据
-   {
-        p = char(Serial.read());
-        delay(2);
-   }
+   while(Serial.read()>=0); //清空串口缓存
+   unsigned long PrevMillis = millis();
    Serial.print("AT+CSQ\r\n");
-   delay(1500);
-   memset(csq,0,sizeof(csq));     //清空信号强度数组缓存数据
-   while( Serial.available()> 0 )  
+   memset(csq,0,sizeof(csq));
+   unsigned long currentMillis = millis();
+   while ( (i < 2) && ((currentMillis - PrevMillis) < waitms) )
    {
-        p = char(Serial.read());
-        if( p == ',')
-        {
-          break;
-        }  
-        else if(p >= '0' &&  p<= '9')
-        {
-          csq[i++] = p;
-          if(i == 2)
+      while( Serial.available()> 0 )  
+      {
+          p = Serial.read();
+          if( p == ',')
+          {
+            i = 2;
             break;
-        }
-        delay(2);
-   }  
-   csq[i]='\0';
-   wdt_reset(); //喂狗操作
+          }  
+          else if(p >= '0' &&  p<= '9')
+          {
+              csq[i++] = p;
+              break;
+          }
+      }
+      wdt_reset(); //喂狗操作
+      currentMillis = millis();
+   }
+   if(i == 0)  //如果查询信号强度超时 则信号强度为0
+   {
+	   csq[0]='0';
+	   csq[1]='\0';
+   }
+   while(Serial.read()>=0); //清空串口缓存
 }

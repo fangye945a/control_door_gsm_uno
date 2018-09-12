@@ -16,7 +16,7 @@
 #include "pins_arduino.h"
 #include <avr/pgmspace.h>
 
-`1#define DE_BUG            //启用调试
+//#define DE_BUG            //启用调试
 
 #define UART_BUFFER_LENGTH 300    //Maximum length allowed for UART data
 #define TOPIC_BUFFER_LENGTH 50    //Maximum length allowed Topic
